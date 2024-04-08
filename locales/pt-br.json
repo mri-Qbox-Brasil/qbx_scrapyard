@@ -1,0 +1,21 @@
+{
+    "error": {
+        "scrap_owned": "Você não pode desmanchar veículos de propriedade de jogadores.",
+        "cannot_scrap": "Este veículo não pode ser desmanchado.",
+        "not_driver": "Você não é o motorista",
+        "scrap_vehicle": "Você não está autorizado a desmanchar veículos agora",
+        "canceled": "Cancelado"
+    },
+    "text": {
+        "disassemble_vehicle": "[E] - Desmanchar Veículo",
+        "email_list": "[E] - Lista de Veículos por E-mail",
+        "email_list_target": "Lista de Veículos por E-mail",
+        "scrap_vehicle": "Desmanchando Veículo",
+        "email_sent": "Você receberá a lista por e-mail em alguns segundos"
+    },
+    "email": {
+        "sender": "Desmanche Auto Turner",
+        "subject": "Lista de Veículos",
+        "message": "Você só pode desmanchar um número limitado de veículos..<br />Você pode manter tudo o que desmanchar para si mesmo, contanto que não me incomode.<br /><br /><strong>Lista de Veículos:</strong><br />"
+    }
+}
