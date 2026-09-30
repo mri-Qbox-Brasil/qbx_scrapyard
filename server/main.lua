@@ -1,5 +1,10 @@
 local config = require 'config.server'
+local clientConfig = require 'config.client'
+local scrapyardCoords = clientConfig.locations.deliver.coords
+local maxScrapDistance = 15.0
 local currentVehicles = {}
+local scrapping = {}
+local reservedModels = {}
 
 local function isInList(name)
     if next(currentVehicles) then
@@ -24,23 +29,55 @@ local function generateVehicleList()
     TriggerClientEvent('qbx_scrapyard:client:setNewVehicles', -1, currentVehicles)
 end
 
-lib.callback.register('qbx_scrapyard:server:checkVehicleOwner', function(_, plate)
-    local vehicle = MySQL.single.await('SELECT * FROM player_vehicles WHERE plate = ?', {plate})
-    return vehicle and true or false
-end)
-
 RegisterNetEvent('QBCore:Server:OnPlayerLoaded', function()
     TriggerClientEvent('qbx_scrapyard:client:setNewVehicles', source, currentVehicles)
 end)
 
 RegisterNetEvent('qbx_scrapyard:server:scrapVehicle', function(listKey, netId)
     local src = source
+    if scrapping[src] then return end
+
     local player = exports.qbx_core:GetPlayer(src)
+    local expectedModel = currentVehicles[listKey]
+    if not player or not expectedModel or reservedModels[expectedModel] then return end
+
     local entity = NetworkGetEntityFromNetworkId(netId)
-    if not player or not currentVehicles[listKey] or not DoesEntityExist(entity) then return end
+    if not DoesEntityExist(entity) or GetEntityModel(entity) ~= joaat(expectedModel) then return end
+
+    if GetPedInVehicleSeat(entity, -1) ~= GetPlayerPed(src) then return end
+
+    if #(GetEntityCoords(entity) - scrapyardCoords) > maxScrapDistance then return end
+
+    scrapping[src] = expectedModel
+    reservedModels[expectedModel] = true
+
+    local owned = MySQL.scalar.await('SELECT 1 FROM player_vehicles WHERE plate = ?', {qbx.getVehiclePlate(entity)})
+    if owned then
+        scrapping[src] = nil
+        reservedModels[expectedModel] = nil
+        exports.qbx_core:Notify(src, locale('error.scrap_owned'), 'error')
+        return
+    end
+
+    local currentIndex
+    for index = 1, #currentVehicles do
+        if currentVehicles[index] == expectedModel then
+            currentIndex = index
+            break
+        end
+    end
+
+    if not currentIndex then
+        scrapping[src] = nil
+        reservedModels[expectedModel] = nil
+        return
+    end
+
+    table.remove(currentVehicles, currentIndex)
+    TriggerClientEvent('qbx_scrapyard:client:setNewVehicles', -1, currentVehicles)
 
     DeleteEntity(entity)
-    
+
     for _ = 1, math.random(2, 4), 1 do
         local item = config.items[math.random(1, #config.items)]
         exports.ox_inventory:AddItem(src, item, math.random(25, 45))
@@ -54,8 +91,8 @@ RegisterNetEvent('qbx_scrapyard:server:scrapVehicle', function(listKey, netId)
         exports.ox_inventory:AddItem(src, 'rubber', random)
     end
 
-    table.remove(currentVehicles, listKey)
-    TriggerClientEvent('qbx_scrapyard:client:setNewVehicles', -1, currentVehicles)
+    scrapping[src] = nil
+    reservedModels[expectedModel] = nil
 end)
 
 AddEventHandler('onResourceStart', function(resource)
